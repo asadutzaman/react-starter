@@ -7,35 +7,44 @@ import { useNavigate } from 'react-router-dom';
 import { EyeOutlined } from '@ant-design/icons';
 
 const ItemComponent = () => {
-    const [items, setItems] = useState([]);
     const [pagination, setPagination] = useState({});
-    const [search, setSearch] = useState('');
-    const [sortBy, setSortBy] = useState('name');
-    const [sortDirection, setSortDirection] = useState('asc');
     const [newItem, setNewItem] = useState({ name: '', description: '', price: 0 });
     const [editItem, setEditItem] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [form] = Form.useForm();
     const navigate = useNavigate();
+    const [items, setItems] = useState([]);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
+    const [search, setSearch] = useState('');
+    const [sortBy, setSortBy] = useState('name');
+    const [sortDirection, setSortDirection] = useState('asc');
 
     useEffect(() => {
         fetchItems();
-    }, [search, sortBy, sortDirection]);
+    }, [currentPage, search, sortBy, sortDirection]);
 
-    const fetchItems = async (url = '/items') => {
+    const fetchItems = async () => {
         try {
             const response = await ItemService.getItems({
                 search,
                 sortBy,
                 sortDirection,
+                page: currentPage,
             });
-            setItems(response.data.data);
-            setPagination({
-                prev: response.data.prev_page_url,
-                next: response.data.next_page_url,
-            });
+
+            if (response && response.data) {
+                setItems(response.data.data);
+                setCurrentPage(response.data.current_page);
+                setTotalItems(response.data.total); // Update total items for pagination
+            } else {
+                setItems([]);
+                setTotalItems(0);
+            }
         } catch (error) {
-            console.error(error);
+            console.error('Error fetching items:', error);
+            setItems([]);
+            setTotalItems(0);
         }
     };
 
@@ -90,7 +99,10 @@ const ItemComponent = () => {
         }
     };
 
-    const handleSearch = (e) => setSearch(e.target.value);
+    const handleSearch = (e) => {
+        setSearch(e.target.value);
+        setCurrentPage(1); // Reset to the first page on search
+    };
 
     const handleSort = (column) => {
         if (sortBy === column) {
@@ -99,6 +111,10 @@ const ItemComponent = () => {
             setSortBy(column);
             setSortDirection('asc');
         }
+    };
+
+    const handlePageChange = (page) => {
+        setCurrentPage(page);
     };
 
     const resetForm = () => {
@@ -167,9 +183,11 @@ const ItemComponent = () => {
 
             {/* Pagination */}
             <Pagination
+                current={currentPage}
+                total={totalItems}
+                pageSize={5} // This should match the `per_page` value in the API response
+                onChange={handlePageChange}
                 style={{ marginTop: 20 }}
-                onChange={(page) => fetchItems(pagination[page])}
-                disabled={!pagination.prev && !pagination.next}
             />
 
             {/* Modal */}
